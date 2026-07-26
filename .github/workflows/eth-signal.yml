@@ -2,8 +2,8 @@ name: ETH Signal Check
 
 on:
   schedule:
-    # 15分ごとに実行(GitHub側の負荷状況により多少ずれることがあります)
-    - cron: '*/15 * * * *'
+    # 5分ごとに実行(GitHub Actionsのscheduleは実質5分間隔が下限です)
+    - cron: '*/5 * * * *'
   workflow_dispatch: {}
 
 permissions:
@@ -30,6 +30,13 @@ jobs:
           # true にするとシグナルが変化していなくても毎回通知します
           NOTIFY_ALWAYS: 'false'
 
+          # 価格データの足の種類: 1h(推奨) / 4h / daily
+          TIMEFRAME: '1h'
+          # 前回チェック時からの変動率(%)がこれを超えたら「価格急変アラート」を送信
+          PRICE_ALERT_SHORT_PCT: '1.5'
+          # 24時間変動率(%)がこれを超えたら「24時間アラート」を送信
+          PRICE_ALERT_24H_PCT: '5'
+
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
@@ -46,4 +53,3 @@ jobs:
           git add last_signal.json
           git diff --cached --quiet || git commit -m "chore: update last signal state"
           git push
-
