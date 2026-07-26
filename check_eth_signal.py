@@ -318,3 +318,6 @@ def main():
     signal = generate_signal(prices, ind)
     state = load_state()
     last_type = state
+
+if __name__ == "__main__":
+    main()
