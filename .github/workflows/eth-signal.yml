@@ -1,1 +1,49 @@
+name: ETH Signal Check
+
+on:
+  schedule:
+    # 15分ごとに実行(GitHub側の負荷状況により多少ずれることがあります)
+    - cron: '*/15 * * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run signal check
+        env:
+          # 通知チャネルの有効/無効(不要な方は false に変更してください)
+          ENABLE_EMAIL: 'true'
+          ENABLE_LINE: 'true'
+          # true にするとシグナルが変化していなくても毎回通知します
+          NOTIFY_ALWAYS: 'false'
+
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          TO_EMAIL: ${{ secrets.TO_EMAIL }}
+
+          LINE_CHANNEL_TOKEN: ${{ secrets.LINE_CHANNEL_TOKEN }}
+        run: python check_eth_signal.py
+
+      - name: Commit updated state
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add last_signal.json
+          git diff --cached --quiet || git commit -m "chore: update last signal state"
+          git push
 
