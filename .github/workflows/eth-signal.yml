@@ -28,7 +28,7 @@ jobs:
           ENABLE_EMAIL: 'true'
           ENABLE_LINE: 'true'
           # true にするとシグナルが変化していなくても毎回通知します
-          NOTIFY_ALWAYS: 'false'
+          NOTIFY_ALWAYS: 'true'
 
           # 価格データの足の種類: 1h(推奨) / 4h / daily
           TIMEFRAME: '1h'
