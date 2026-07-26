@@ -26,12 +26,12 @@ def fetch_prices():
     if timeframe == "4h":
         r = requests.get(
             f"{CG_BASE}/coins/ethereum/market_chart",
-            params={"vs_currency": "jpy", "days": 90},  # 2-90日の範囲は自動で時間足になる
+            params={"vs_currency": "jpy", "days": 90},
             timeout=30,
         )
         r.raise_for_status()
         pts = r.json()["prices"]
-        prices = [p[1] for p in pts[::4]]  # 4本(=4時間)ごとの終値を採用した簡易4時間足
+        prices = [p[1] for p in pts[::4]]
     elif timeframe == "1h":
         r = requests.get(
             f"{CG_BASE}/coins/ethereum/market_chart",
@@ -61,7 +61,6 @@ def fetch_prices():
     return prices, d2["jpy"], d2["jpy_24h_change"]
 
 
-# ---------- テクニカル指標 ----------
 def sma(vals, period):
     out = [None] * len(vals)
     for i in range(period - 1, len(vals)):
@@ -146,7 +145,6 @@ def compute_all(prices):
     }
 
 
-# ---------- シグナル判定 ----------
 def generate_signal(prices, ind):
     n = len(prices) - 1
     reasons = []
@@ -201,7 +199,6 @@ def generate_signal(prices, ind):
     return {"type": signal_type, "score": score, "reasons": reasons}
 
 
-# ---------- 通知 ----------
 def send_email(subject, body):
     host = os.environ["SMTP_HOST"]
     port = int(os.environ.get("SMTP_PORT", "587"))
@@ -221,8 +218,6 @@ def send_email(subject, body):
 
 
 def send_line(text):
-    # ブロードキャスト配信を使用(自分の公式アカウントを友だち追加している全員に送信)
-    # 個人利用であれば自分だけが友だちのはずなので、ユーザーIDの取得が不要でシンプル
     token = os.environ["LINE_CHANNEL_TOKEN"]
     r = requests.post(
         "https://api.line.me/v2/bot/message/broadcast",
@@ -249,7 +244,6 @@ def notify_all(subject, body):
             print(f"LINE送信エラー: {e}")
 
 
-# ---------- 状態管理 ----------
 def load_state():
     if os.path.exists(STATE_FILE):
         with open(STATE_FILE) as f:
@@ -269,18 +263,12 @@ def save_state(state):
         json.dump(state, f)
 
 
-# ---------- 価格急変アラート ----------
 def check_price_alerts(current, change24h, state):
-    """
-    直近チェック時からの短期変動(%)と、24時間変動(%)がしきい値を超えたら通知する。
-    しきい値を下回ったらフラグをリセットし、再度超えたときにまた通知できるようにする。
-    """
     short_pct_threshold = float(os.environ.get("PRICE_ALERT_SHORT_PCT", "1.5"))
     day_pct_threshold = float(os.environ.get("PRICE_ALERT_24H_PCT", "5"))
 
     messages = []
 
-    # 短期変動(前回チェック時との比較。cron間隔=数分〜十数分想定)
     last_price = state["last_price"]
     if last_price:
         short_pct = (current - last_price) / last_price * 100
@@ -295,7 +283,6 @@ def check_price_alerts(current, change24h, state):
         elif abs(short_pct) < short_pct_threshold * 0.5:
             state["short_alerted"] = False
 
-    # 24時間変動
     if abs(change24h) >= day_pct_threshold:
         if not state["day_alerted"]:
             direction = "上昇" if change24h > 0 else "下落"
@@ -311,13 +298,39 @@ def check_price_alerts(current, change24h, state):
     return messages, state
 
 
-# ---------- メイン処理 ----------
 def main():
     prices, current, change24h = fetch_prices()
     ind = compute_all(prices)
     signal = generate_signal(prices, ind)
     state = load_state()
-    last_type = state
+    last_type = state["type"]
+
+    print(f"現在価格: {round(current):,}円 (24h {change24h:.2f}%)")
+    print(f"シグナル: {signal['type']} (スコア {signal['score']})")
+    for r in signal["reasons"]:
+        print(" -", r)
+
+    notify_always = os.environ.get("NOTIFY_ALWAYS", "false").lower() == "true"
+
+    if last_type != signal["type"] or notify_always:
+        subject = f"ETHシグナル: {signal['type']}"
+        body = (
+            f"ETH価格: {round(current):,}円\n"
+            f"判定: {signal['type']}\n"
+            "理由:\n- " + "\n- ".join(signal["reasons"])
+        )
+        notify_all(subject, body)
+        state["type"] = signal["type"]
+    else:
+        print("シグナルに変化なし。通知はスキップしました。")
+
+    alert_messages, state = check_price_alerts(current, change24h, state)
+    for msg in alert_messages:
+        print(msg)
+        notify_all("ETH価格急変アラート", msg)
+
+    save_state(state)
+
 
 if __name__ == "__main__":
     main()
