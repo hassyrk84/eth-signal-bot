@@ -25,7 +25,7 @@ jobs:
       - name: Run signal check
         env:
           # 通知チャネルの有効/無効(不要な方は false に変更してください)
-          ENABLE_EMAIL: 'true'
+          ENABLE_EMAIL: 'false'
           ENABLE_LINE: 'true'
           # true にするとシグナルが変化していなくても毎回通知します
           NOTIFY_ALWAYS: 'true'
