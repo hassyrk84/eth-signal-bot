@@ -312,7 +312,8 @@ def main():
 
     notify_always = os.environ.get("NOTIFY_ALWAYS", "false").lower() == "true"
 
-    if last_type != signal["type"] or notify_always:
+    # HOLDの時は通知しない。BUY/SELLに変化した時、またはNOTIFY_ALWAYSが有効な時のみ通知
+    if signal["type"] != "HOLD" and (last_type != signal["type"] or notify_always):
         subject = f"ETHシグナル: {signal['type']}"
         body = (
             f"ETH価格: {round(current):,}円\n"
@@ -322,7 +323,8 @@ def main():
         notify_all(subject, body)
         state["type"] = signal["type"]
     else:
-        print("シグナルに変化なし。通知はスキップしました。")
+        print("通知条件を満たしていません(HOLDまたは変化なし)。通知はスキップしました。")
+        state["type"] = signal["type"]
 
     alert_messages, state = check_price_alerts(current, change24h, state)
     for msg in alert_messages:
