@@ -23,7 +23,7 @@ jobs:
 
       - name: Run signal check
         env:
-          ENABLE_EMAIL: 'true'
+          ENABLE_EMAIL: 'false'
           ENABLE_LINE: 'true'
           NOTIFY_ALWAYS: 'false'
 
